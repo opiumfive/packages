@@ -40,6 +40,10 @@ class CameraWindows extends CameraPlatform {
       cameraEventStreamController.stream
           .where((CameraEvent event) => event.cameraId == cameraId);
 
+  StreamController<CameraImageData>? _frameStreamController;
+
+  StreamSubscription<dynamic>? _platformImageStreamSubscription;
+
   @override
   Future<List<CameraDescription>> availableCameras() async {
     try {
@@ -232,8 +236,14 @@ class CameraWindows extends CameraPlatform {
       <String, dynamic>{
         'cameraId': options.cameraId,
         'maxVideoDuration': options.maxDuration?.inMilliseconds,
+        // 'enableStream': options.streamCallback != null,
       },
     );
+
+    // if (options.streamCallback != null) {
+    //   _installStreamController().stream.listen(options.streamCallback);
+    //   _startStreamListener();
+    // }
   }
 
   @override
@@ -258,6 +268,126 @@ class CameraWindows extends CameraPlatform {
   Future<void> resumeVideoRecording(int cameraId) async {
     throw UnsupportedError(
         'resumeVideoRecording() is not supported due to Win32 API limitations.');
+  }
+
+  int? camid;
+  @override
+  Stream<CameraImageData> onStreamedFrameAvailable(int cameraId,
+      {CameraImageStreamOptions? options}) {
+    camid = cameraId;
+    _installStreamController(onListen: _onFrameStreamListen);
+    return _frameStreamController!.stream;
+  }
+
+  StreamController<CameraImageData> _installStreamController(
+      {Function()? onListen}) {
+    _frameStreamController = StreamController<CameraImageData>(
+      onListen: onListen ?? () {},
+      onPause: _onFrameStreamPauseResume,
+      onResume: _onFrameStreamPauseResume,
+      onCancel: _onFrameStreamCancel,
+    );
+    return _frameStreamController!;
+  }
+
+  void _onFrameStreamListen() {
+    _startPlatformStream();
+  }
+
+  // StreamController<img.Image>? ImageStream;
+  Future<void> _startPlatformStream() async {
+    print("here");
+
+    _startStreamListener();
+    // await Future.delayed(const Duration(milliseconds: 100));
+    try {
+      pluginChannel.invokeMethod<void>(
+          'startImageStream', <String, dynamic>{'cameraId': camid});
+      print("Successfully started!!!!!!!");
+    } on PlatformException catch (e) {
+      print("Platforme xception noooo: $e");
+    }
+
+    // ImageStream = StreamController<img.Image>();
+    // return ImageStream!.stream.asBroadcastStream();
+  }
+
+  void _startStreamListener() {
+    const MethodChannel cameraEventChannel =
+        MethodChannel('plugins.flutter.io/camera_windows/imageStream');
+    // Stopwatch stopwatch = Stopwatch();
+    cameraEventChannel.setMethodCallHandler((MethodCall call) {
+      
+      // print("HELLO FROM THE OTHER SIDE");
+
+      // Uint8List frame = (call.arguments)['dataR'] as Uint8List;
+      Uint8List frameRValues = call.arguments['dataR'] as Uint8List;
+      Uint8List frameGValues = call.arguments['dataG'] as Uint8List;
+      Uint8List frameBValues = call.arguments['dataB'] as Uint8List;
+      Uint8List frameAValues = call.arguments['dataA'] as Uint8List;
+
+      int width = (call.arguments)['width'] as int;
+      int height = (call.arguments)['height'] as int;
+      
+      CameraImagePlane rPlane = CameraImagePlane(
+        bytes: frameRValues,
+        bytesPerRow: width,
+        width: width,
+        height: height,
+      );
+      CameraImagePlane gPlane = CameraImagePlane(
+        bytes: frameGValues,
+        bytesPerRow: width,
+        width: width,
+        height: height,
+      );
+      CameraImagePlane bPlane = CameraImagePlane(
+        bytes: frameBValues,
+        bytesPerRow: width,
+        width: width,
+        height: height,
+      );
+      CameraImagePlane aPlane = CameraImagePlane(
+        bytes: frameAValues,
+        bytesPerRow: width,
+        width: width,
+        height: height,
+      );
+
+      CameraImageData myImageData = CameraImageData(
+          format: CameraImageFormat(
+            ImageFormatGroup.bgra8888,
+            raw: 42, //This represents RGBA on Android
+          ),
+          planes: [rPlane, gPlane, bPlane, aPlane],
+          height: height,
+          width: width);
+
+      // CameraImageData myImageData = CameraImageData(
+      //     format: CameraImageFormat(
+      //       ImageFormatGroup.bgra8888,
+      //       raw: 42, //This represents RGBA on Android?
+      //     ),
+      //     planes: [],
+      //     height: 0,
+      //     width: 0);
+
+      _frameStreamController!.sink.add(myImageData);
+
+      return Future(() => "test");
+    });
+  }
+
+  FutureOr<void> _onFrameStreamCancel() async {
+    await pluginChannel.invokeMethod<void>('stopImageStream');
+    await _platformImageStreamSubscription?.cancel();
+    _platformImageStreamSubscription = null;
+    _frameStreamController = null;
+  }
+
+  void _onFrameStreamPauseResume() {
+    throw CameraException('InvalidCall',
+        'Pause and resume are not supported for onStreamedFrameAvailable');
   }
 
   @override

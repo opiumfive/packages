@@ -6,6 +6,8 @@
 #define PACKAGES_CAMERA_CAMERA_WINDOWS_WINDOWS_TEXTURE_HANDLER_H_
 
 #include <flutter/texture_registrar.h>
+#include <flutter/method_channel.h>
+
 
 #include <memory>
 #include <mutex>
@@ -37,12 +39,15 @@ class TextureHandler {
       : texture_registrar_(texture_registrar) {}
   virtual ~TextureHandler();
 
+  flutter::MethodChannel<> *imgStream=nullptr;
+
   // Prevent copying.
   TextureHandler(TextureHandler const&) = delete;
   TextureHandler& operator=(TextureHandler const&) = delete;
 
   // Updates source data buffer with given data.
   bool UpdateBuffer(uint8_t* data, uint32_t data_length);
+  bool UpdateBuffer(uint8_t* data, uint32_t data_length,  flutter::MethodChannel<> *imgStream);
 
   // Registers texture and updates given texture_id pointer value.
   int64_t RegisterTexture();
@@ -55,6 +60,8 @@ class TextureHandler {
 
   // Sets software mirror state.
   void SetMirrorPreviewState(bool mirror) { mirror_preview_ = mirror; }
+
+  FlutterDesktopPixel* getLatest();
 
  private:
   // Informs flutter texture registrar of updated texture.
@@ -75,6 +82,11 @@ class TextureHandler {
   uint32_t source_buffer_size_ = 0;
   uint32_t preview_frame_width_ = 0;
   uint32_t preview_frame_height_ = 0;
+
+  std::vector<uint8_t> r_array;
+  std::vector<uint8_t> g_array;
+  std::vector<uint8_t> b_array;
+  std::vector<uint8_t> a_array;
 
   std::vector<uint8_t> source_buffer_;
   std::vector<uint8_t> dest_buffer_;

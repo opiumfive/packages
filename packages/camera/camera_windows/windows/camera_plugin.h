@@ -19,12 +19,12 @@
 namespace camera_windows {
 using flutter::MethodResult;
 
-namespace test {
-namespace {
-// Forward declaration of test class.
-class MockCameraPlugin;
-}  // namespace
-}  // namespace test
+// namespace test {
+// namespace {
+// // Forward declaration of test class.
+// class MockCameraPlugin;
+// }  // namespace
+// }  // namespace test
 
 class CameraPlugin : public flutter::Plugin,
                      public VideoCaptureDeviceEnumerator {
@@ -46,9 +46,12 @@ class CameraPlugin : public flutter::Plugin,
   CameraPlugin(const CameraPlugin&) = delete;
   CameraPlugin& operator=(const CameraPlugin&) = delete;
 
-  // Called when a method is called on plugin channel.
   void HandleMethodCall(const flutter::MethodCall<>& method_call,
                         std::unique_ptr<MethodResult<>> result);
+  // Called when a method is called on plugin channel.
+  void HandleMethodCall(const flutter::MethodCall<>& method_call,
+                        std::unique_ptr<MethodResult<>> result,
+                        std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> streamChannel);
 
  private:
   // Loops through cameras and returns camera
@@ -102,6 +105,17 @@ class CameraPlugin : public flutter::Plugin,
   void StopVideoRecordingMethodHandler(const EncodableMap& args,
                                        std::unique_ptr<MethodResult<>> result);
 
+  // Handles startVideoRecording method calls.
+  // Requests existing camera controller to start recording.
+  // Stores result object to be handled after request is processed.
+  void StartImageStreamMethodHandler(const EncodableMap& args,
+                                        std::unique_ptr<MethodResult<>> result);
+
+  // Handles stopVideoRecording method calls.
+  // Requests existing camera controller to stop recording.
+  // Stores result object to be handled after request is processed.
+  void StopImageStreamMethodHandler(const EncodableMap& args,
+                                       std::unique_ptr<MethodResult<>> result);
   // Handles pausePreview method calls.
   // Requests existing camera controller to pause recording.
   // Stores result object to be handled after request is processed.
@@ -124,7 +138,7 @@ class CameraPlugin : public flutter::Plugin,
   flutter::BinaryMessenger* messenger_;
   std::vector<std::unique_ptr<Camera>> cameras_;
 
-  friend class camera_windows::test::MockCameraPlugin;
+  // friend class camera_windows::test::MockCameraPlugin;
 };
 
 }  // namespace camera_windows
